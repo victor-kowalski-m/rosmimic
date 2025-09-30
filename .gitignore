@@ -1,6 +1,7 @@
 datasets/
 *trained_models/
 .claude
+serl_robot_infra/
 
 # pip distribution folder
 dist/
