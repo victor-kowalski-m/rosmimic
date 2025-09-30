@@ -1,3 +1,7 @@
+datasets/
+*trained_models/
+.claude
+
 # pip distribution folder
 dist/
 

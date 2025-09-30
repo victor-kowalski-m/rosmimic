@@ -1,0 +1,32 @@
+{
+  "name": "Robomimic Dev Environment",
+  "image": "robomimic",
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "source=claude-config,target=/root/.claude,type=volume"
+  ],
+  "runArgs": [
+    "--gpus=all",
+    "--shm-size=8g"
+  ],
+  "postCreateCommand": "/opt/conda/bin/conda run -n robomimic_venv pip install -e .",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylint"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/conda/envs/robomimic_venv/bin/python",
+        "python.terminal.activateEnvironment": true
+      }
+    }
+  },
+  "remoteUser": "root",
+  "containerEnv": {
+    "DISPLAY": ":0",
+    "NVIDIA_VISIBLE_DEVICES": "all",
+    "NVIDIA_DRIVER_CAPABILITIES": "compute,utility"
+  }
+}

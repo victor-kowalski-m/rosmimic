@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/opt/conda/bin:$PATH \
     MUJOCO_GL=osmesa
 
-# Install system dependencies
+# Install system dependencies including Node.js
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
@@ -23,32 +23,55 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     patchelf && \
     rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 20.x LTS (required for Claude Code)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Miniconda
 RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -p /opt/conda && \
     rm /tmp/miniconda.sh && \
     conda clean -afy
 
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
 # Create and activate robomimic conda environment with Python 3.9
 RUN /opt/conda/bin/conda create -n robomimic_venv python=3.9 -y
 
-# Install PyTorch and torchvision with CPU fallback
-RUN /opt/conda/bin/conda run -n robomimic_venv conda install -y pytorch==2.0.0 torchvision==0.15.0 cpuonly -c pytorch || \
-    /opt/conda/bin/conda run -n robomimic_venv pip install torch==2.0.0+cpu torchvision==0.15.0+cpu
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code
 
-# Install robomimic from source
-WORKDIR /opt
-RUN git clone https://github.com/ARISE-Initiative/robomimic.git && \
-    /opt/conda/bin/conda run -n robomimic_venv pip install -e ./robomimic
+# Install Jupyter and all dependencies in the conda environment
+RUN /opt/conda/bin/conda run -n robomimic_venv pip install \
+    jupyter \
+    ipykernel \
+    notebook \
+    ipywidgets \
+    nbconvert \
+    jupyterlab
+
+# Register the kernel
+RUN /opt/conda/bin/conda run -n robomimic_venv python -m ipykernel install --user --name robomimic_venv --display-name "Python (robomimic_venv)"
+
+# Initialize conda for bash
+RUN /opt/conda/bin/conda init bash
+
+# Install PyTorch and torchvision with CPU fallback
+RUN /opt/conda/bin/conda run -n robomimic_venv conda install -y pytorch==2.0.0 torchvision==0.15.0 pytorch-cuda=11.8 -c pytorch -c nvidia || \
+    /opt/conda/bin/conda run -n robomimic_venv pip install torch==2.0.0 torchvision==0.15.0 --index-url https://download.pytorch.org/whl/cu118
 
 # Install robosuite
-RUN git clone https://github.com/ARISE-Initiative/robosuite.git && \
-    cd robosuite && \
-    /opt/conda/bin/conda run -n robomimic_venv pip install -r requirements.txt
+# WORKDIR /opt
+# RUN git clone https://github.com/ARISE-Initiative/robosuite.git && \
+#     cd robosuite && \
+#     /opt/conda/bin/conda run -n robomimic_venv pip install -r requirements.txt
 
-# Optional: Install robomimic documentation dependencies
-WORKDIR /opt/robomimic
-RUN /opt/conda/bin/conda run -n robomimic_venv pip install -r requirements-docs.txt
+RUN /opt/conda/bin/conda run -n robomimic_venv pip install robosuite
+
+# Install additional packages
+RUN /opt/conda/bin/conda run -n robomimic_venv pip install wandb
 
 # Set the working directory
 WORKDIR /workspace

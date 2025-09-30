@@ -7,6 +7,8 @@ import json
 import numpy as np
 from copy import deepcopy
 
+import sys
+sys.path.append("/opt/robosuite")
 import robosuite
 import robosuite.utils.transform_utils as T
 try:

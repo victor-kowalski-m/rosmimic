@@ -36,6 +36,9 @@ class PrintLogger(object):
         # ensure stdout gets flushed
         self.terminal.flush()
 
+    def isatty(self):
+        return self.terminal.isatty()
+
 
 class DataLogger(object):
     """
