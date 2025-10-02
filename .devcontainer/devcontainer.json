@@ -4,29 +4,56 @@
   "workspaceFolder": "/workspace",
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
-    "source=claude-config,target=/root/.claude,type=volume"
+    "source=claude-config,target=/root/.claude,type=volume",
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
   ],
   "runArgs": [
     "--gpus=all",
-    "--shm-size=8g"
+    "--shm-size=8g",
+    "--privileged",
+    "--env=DISPLAY=${localEnv:DISPLAY}",
+    "--device=/dev/dri:/dev/dri"
   ],
+  "forwardPorts": [11311],
+  "portsAttributes": {
+    "11311": {
+      "label": "ROS Master",
+      "onAutoForward": "notify"
+    }
+  },
   "postCreateCommand": "/opt/conda/bin/conda run -n robomimic_venv pip install -e .",
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python.pylint"
+        // "ms-python.pylint",
+        "ms-vscode.cpptools",
+        "ms-iot.vscode-ros"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/opt/conda/envs/robomimic_venv/bin/python",
-        "python.terminal.activateEnvironment": true
+        "python.terminal.activateEnvironment": false,
+        "terminal.integrated.profiles.linux": {
+          "ROS": {
+            "path": "/bin/bash",
+            "args": ["-c", "source ~/ros_env.sh && exec bash"]
+          },
+          "Conda": {
+            "path": "/bin/bash", 
+            "args": ["-c", "source ~/conda_env.sh && exec bash"]
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "ROS"
       }
-    }
-  },
+      }
+    },
   "remoteUser": "root",
   "containerEnv": {
-    "DISPLAY": ":0",
+    "DISPLAY": "${localEnv:DISPLAY}",
     "NVIDIA_VISIBLE_DEVICES": "all",
-    "NVIDIA_DRIVER_CAPABILITIES": "compute,utility"
+    "NVIDIA_DRIVER_CAPABILITIES": "all",
+    "QT_X11_NO_MITSHM": "1",
+    "__NV_PRIME_RENDER_OFFLOAD": "1",
+    "__GLX_VENDOR_LIBRARY_NAME": "nvidia"
   }
 }

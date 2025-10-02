@@ -65,10 +65,29 @@ import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.torch_utils as TorchUtils
 import robomimic.utils.tensor_utils as TensorUtils
 import robomimic.utils.obs_utils as ObsUtils
-from robomimic.envs.env_base import EnvBase, EnvType
+from robomimic.envs.env_base import EnvBase
+from robomimic.envs.env_gazebo import EnvGazebo
 from robomimic.envs.wrappers import EnvWrapper
 from robomimic.algo import RolloutPolicy
+from scipy.spatial.transform import Rotation as R, Slerp
 
+def calc_line(start, goal, len_t=50):
+    # Receives list of [x, y, z, qw, qx, qy, qz]
+    # Returns list of [x, y, z, qw, qx, qy, qz]
+
+    # Convert start and goal to x, y, z, qx, qy, qz, qw
+    start = np.array([start[0], start[1], start[2], start[4], start[5], start[6], start[3]])
+    goal = np.array([goal[0], goal[1], goal[2], goal[4], goal[5], goal[6], goal[3]])
+    
+    vec = goal[:3] - start[:3]
+    t = np.linspace(0, 1, len_t)
+    points = (vec[..., np.newaxis] * t).T + start[:3]
+    orients = np.array([start[3:], goal[3:]])
+    orients = R.from_quat(orients)
+    sl = Slerp([0, 1], orients)
+    orients = sl(t).as_quat()
+    orients = [np.concat((np.array([robot_quat[-1]]), robot_quat[:3])) for robot_quat in orients]  # to w, x, y, z
+    return np.concatenate([points, orients], axis=1)
 
 def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5, return_obs=False, camera_names=None):
     """
@@ -93,16 +112,15 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
         traj (dict): dictionary that corresponds to the rollout trajectory
     """
     assert isinstance(env, EnvBase) or isinstance(env, EnvWrapper)
-    assert isinstance(policy, RolloutPolicy)
+    # assert isinstance(policy, RolloutPolicy)
     assert not (render and (video_writer is not None))
 
-    policy.start_episode()
+    # policy.start_episode()
     obs = env.reset()
     state_dict = env.get_state()
 
     # hack that is necessary for robosuite tasks for deterministic action playback
-    if not env.type == EnvType.GAZEBO_TYPE:
-        obs = env.reset_to(state_dict)
+    # obs = env.reset_to(state_dict)
 
     results = {}
     video_count = 0  # video frame counter
@@ -111,50 +129,105 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
     if return_obs:
         # store observations too
         traj.update(dict(obs=[], next_obs=[]))
-    try:
-        for step_i in range(horizon):
+    # try:
 
-            # get action from policy
-            act = policy(ob=obs)
+    robot_quat = ( 
+            R.from_euler("xyz", env.block_pose[3:]) *
+            R.from_quat([1.0, 0.0, 0.0, 0.0])
+        ).as_quat()
+    robot_quat = np.concat((np.array([robot_quat[-1]]), robot_quat[:3]))  # to w, x, y, z
+    
+    approach_t = 20
+    pick_t = 20
+    grasp_t = 20
+    lift_t = 20 
+    approach_poses = calc_line(
+        [*obs["robot_ee_pos"], *obs["robot_ee_quat"]],
+        [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
+        approach_t
+    )
+    pick_poses = calc_line(
+        [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
+        [*env.block_pose[:3], *robot_quat],
+        pick_t
+    )
+    # lift_poses = calc_line(
+    #     [*env.block_pose[:3], *robot_quat],
+    #     [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
+    #     lift_t
+    # )
 
-            # play action
-            next_obs, r, done, _ = env.step(act)
+    for step_i in range(horizon):
 
-            # compute reward
-            total_reward += r
-            success = env.is_success()["task"]
+        # get action from policy
+        # act = np.array([0.5, 0.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.005]) # open gripper
+        # import pdb; pdb.set_trace()
+        # act = np.concat((obs["robot_ee_pos"] + np.array([0.02, 0.0, 0.0]), obs["robot_ee_quat"], np.array([0.005])))
 
-            # visualization
-            if render:
-                env.render(mode="human", camera_name=camera_names[0])
-            if video_writer is not None:
-                if video_count % video_skip == 0:
-                    video_img = []
-                    for cam_name in camera_names:
-                        video_img.append(env.render(mode="rgb_array", height=512, width=512, camera_name=cam_name))
-                    video_img = np.concatenate(video_img, axis=1) # concatenate horizontally
-                    video_writer.append_data(video_img)
-                video_count += 1
+        # TEST GO ABOVE BLOCK
+        # import pdb; pdb.set_trace() 
+        # SCALAR LAST! x, y, z, w
+        # robot_quat = ( 
+        #     R.from_euler("xyz", env.block_pose[3:]) *
+        #     R.from_quat([1.0, 0.0, 0.0, 0.0])
+        # ).as_quat()
+        # robot_quat = np.concat((np.array([robot_quat[-1]]), robot_quat[:3]))  # to w, x, y, z
+        # act = np.concat((env.block_pose[:3] + np.array([0, 0, 0.1]), robot_quat, np.array([0.005])))
 
-            # collect transition
-            traj["actions"].append(act)
-            traj["rewards"].append(r)
-            traj["dones"].append(done)
-            traj["states"].append(state_dict["states"])
-            if return_obs:
-                traj["obs"].append(obs)
-                traj["next_obs"].append(next_obs)
+        if step_i < approach_t:
+            print("APPROACH")
+            act = np.concat((approach_poses[step_i], np.array([0.08])))
+        elif step_i < approach_t + pick_t:
+            print("picking")
+            act = np.concat((pick_poses[step_i - approach_t], np.array([0.08])))
+        elif step_i < approach_t + pick_t + grasp_t:
+            print("grasping")
+            act = np.concat((pick_poses[-1], np.array([0.005])))
+        # elif step_i < approach_t + pick_t + grasp_t + lift_t:
+        #     act = np.concat((lift_poses[step_i - approach_t - pick_t - grasp_t], np.array([0.0])))
+        # else:
+        #     act = np.concat((lift_poses[-1], np.array([0.06])))
+        # act = np.array([*poses[np.clip(step_i, 0, poses.shape[0]-1)], 0.06])
 
-            # break if done or if success
-            if done or success:
-                break
+        # play action
+        next_obs, r, done, _ = env.step(act)
 
-            # update for next iter
-            obs = deepcopy(next_obs)
-            state_dict = env.get_state()
+        # compute reward
+        total_reward += r
+        success = env.is_success()["task"]
 
-    except env.rollout_exceptions as e:
-        print("WARNING: got rollout exception {}".format(e))
+        # # visualization
+        # if render:
+        #     env.render(mode="human", camera_name=camera_names[0])
+        if video_writer is not None:
+            print("step", step_i)
+            if video_count % video_skip == 0:
+                video_img = []
+                for cam_name in camera_names:
+                    video_img.append(env.render(mode="rgb_array", height=512, width=512, camera_name=cam_name))
+                video_img = np.concatenate(video_img, axis=1) # concatenate horizontally
+                video_writer.append_data(video_img)
+            video_count += 1
+
+        # collect transition
+        traj["actions"].append(act)
+        traj["rewards"].append(r)
+        traj["dones"].append(done)
+        traj["states"].append(state_dict["states"])
+        if return_obs:
+            traj["obs"].append(obs)
+            traj["next_obs"].append(next_obs)
+
+        # break if done or if success
+        if done or success:
+            break
+
+        # update for next iter
+        obs = deepcopy(next_obs)
+        state_dict = env.get_state()
+
+    # except env.rollout_exceptions as e:
+    #     print("WARNING: got rollout exception {}".format(e))
 
     stats = dict(Return=total_reward, Horizon=(step_i + 1), Success_Rate=float(success))
 
@@ -185,30 +258,31 @@ def run_trained_agent(args):
         assert len(args.camera_names) == 1
 
     # relative path to agent
-    ckpt_path = args.agent
+    # ckpt_path = args.agent
 
     # device
     device = TorchUtils.get_torch_device(try_to_use_cuda=True)
 
-    # restore policy
-    policy, ckpt_dict = FileUtils.policy_from_checkpoint(ckpt_path=ckpt_path, device=device, verbose=True)
+    # # restore policy
+    # policy, ckpt_dict = FileUtils.policy_from_checkpoint(ckpt_path=ckpt_path, device=device, verbose=True)
 
     # read rollout settings
     rollout_num_episodes = args.n_rollouts
     rollout_horizon = args.horizon
-    if rollout_horizon is None:
+    # if rollout_horizon is None:
         # read horizon from config
-        config, _ = FileUtils.config_from_checkpoint(ckpt_dict=ckpt_dict)
-        rollout_horizon = config.experiment.rollout.horizon
+        # config, _ = FileUtils.config_from_checkpoint(ckpt_dict=ckpt_dict)
+        # rollout_horizon = config.experiment.rollout.horizon
 
     # create environment from saved checkpoint
-    env, _ = FileUtils.env_from_checkpoint(
-        ckpt_dict=ckpt_dict, 
-        env_name=args.env, 
-        render=args.render, 
-        render_offscreen=(args.video_path is not None), 
-        verbose=True,
-    )
+    # env, _ = FileUtils.env_from_checkpoint(
+    #     ckpt_dict=ckpt_dict, 
+    #     env_name=args.env, 
+    #     render=args.render, 
+    #     render_offscreen=(args.video_path is not None), 
+    #     verbose=True,
+    # )
+    env = EnvGazebo("PickBlock")
 
     # maybe set seed
     if args.seed is not None:
@@ -218,7 +292,7 @@ def run_trained_agent(args):
     # maybe create video writer
     video_writer = None
     if write_video:
-        video_writer = imageio.get_writer(args.video_path, fps=20)
+        video_writer = imageio.get_writer(args.video_path, fps=10)
 
     # maybe open hdf5 to write rollouts
     write_dataset = (args.dataset_path is not None)
@@ -229,8 +303,9 @@ def run_trained_agent(args):
 
     rollout_stats = []
     for i in range(rollout_num_episodes):
+        print("********** ROLLOUT {} **********".format(i))
         stats, traj = rollout(
-            policy=policy, 
+            policy=None, 
             env=env, 
             horizon=rollout_horizon, 
             render=args.render, 
@@ -245,6 +320,7 @@ def run_trained_agent(args):
             # store transitions
             ep_data_grp = data_grp.create_group("demo_{}".format(i))
             ep_data_grp.create_dataset("actions", data=np.array(traj["actions"]))
+            # import pdb; pdb.set_trace()
             ep_data_grp.create_dataset("states", data=np.array(traj["states"]))
             ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
             ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
@@ -283,7 +359,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent",
         type=str,
-        required=True,
+        default=None,
         help="path to saved checkpoint pth file",
     )
 
@@ -291,7 +367,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_rollouts",
         type=int,
-        default=27,
+        default=50,
         help="number of rollouts",
     )
 
@@ -299,7 +375,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--horizon",
         type=int,
-        default=None,
+        default=60,
         help="(optional) override maximum horizon of rollout from the one in the checkpoint",
     )
 

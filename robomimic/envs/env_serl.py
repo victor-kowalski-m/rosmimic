@@ -14,11 +14,11 @@ import robomimic.utils.obs_utils as ObsUtils
 import robomimic.envs.env_base as EB
 
 # Import the original FrankaEnv and config
-sys.path.append("/workspace/serl_robot_infra")
-from franka_env.envs.franka_env import FrankaEnv, DefaultEnvConfig
+# sys.path.append("/workspace/serl_robot_infra")
+# from franka_env.envs.franka_env import FrankaEnv, DefaultEnvConfig
 
 
-class EnvFranka(EB.EnvBase):
+class EnvSERL(EB.EnvBase):
     """Wrapper class for Franka environments"""
 
     def __init__(

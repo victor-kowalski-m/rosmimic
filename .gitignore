@@ -2,6 +2,7 @@ datasets/
 *trained_models/
 .claude
 serl_robot_infra/
+catkin_ws/
 
 # pip distribution folder
 dist/
