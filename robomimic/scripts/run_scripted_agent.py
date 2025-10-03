@@ -70,6 +70,23 @@ from robomimic.envs.env_gazebo import EnvGazebo
 from robomimic.envs.wrappers import EnvWrapper
 from robomimic.algo import RolloutPolicy
 from scipy.spatial.transform import Rotation as R, Slerp
+from pynput import keyboard
+
+success_key = False
+def on_press(key):
+    global success_key
+    try:
+        if str(key) == "'e'":
+            print("success key pressed")
+            success_key = True
+    except AttributeError:
+        pass
+
+def quat_w_first_to_last(quat):
+    return np.array([quat[1], quat[2], quat[3], quat[0]])
+
+def quat_w_last_to_first(quat):
+    return np.array([quat[3], quat[0], quat[1], quat[2]])
 
 def calc_line(start, goal, len_t=50):
     # Receives list of [x, y, z, qw, qx, qy, qz]
@@ -86,10 +103,10 @@ def calc_line(start, goal, len_t=50):
     orients = R.from_quat(orients)
     sl = Slerp([0, 1], orients)
     orients = sl(t).as_quat()
-    orients = [np.concat((np.array([robot_quat[-1]]), robot_quat[:3])) for robot_quat in orients]  # to w, x, y, z
+    orients = [np.concatenate((np.array([robot_quat[-1]]), robot_quat[:3])) for robot_quat in orients]  # to w, x, y, z
     return np.concatenate([points, orients], axis=1)
 
-def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5, return_obs=False, camera_names=None):
+def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5, return_obs=False, camera_names=None, teleop_device=None, keyboard_listener=None):
     """
     Helper function to carry out rollouts. Supports on-screen rendering, off-screen rendering to a video, 
     and returns the rollout trajectory.
@@ -111,6 +128,8 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
         stats (dict): some statistics for the rollout - such as return, horizon, and task success
         traj (dict): dictionary that corresponds to the rollout trajectory
     """
+    global success_key
+
     assert isinstance(env, EnvBase) or isinstance(env, EnvWrapper)
     # assert isinstance(policy, RolloutPolicy)
     assert not (render and (video_writer is not None))
@@ -131,63 +150,74 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
         traj.update(dict(obs=[], next_obs=[]))
     # try:
 
-    robot_quat = ( 
-            R.from_euler("xyz", env.block_pose[3:]) *
-            R.from_quat([1.0, 0.0, 0.0, 0.0])
-        ).as_quat()
-    robot_quat = np.concat((np.array([robot_quat[-1]]), robot_quat[:3]))  # to w, x, y, z
-    
-    approach_t = 20
-    pick_t = 20
-    grasp_t = 20
-    lift_t = 20 
-    approach_poses = calc_line(
-        [*obs["robot_ee_pos"], *obs["robot_ee_quat"]],
-        [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
-        approach_t
-    )
-    pick_poses = calc_line(
-        [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
-        [*env.block_pose[:3], *robot_quat],
-        pick_t
-    )
-    # lift_poses = calc_line(
-    #     [*env.block_pose[:3], *robot_quat],
-    #     [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
-    #     lift_t
-    # )
+    if teleop_device is None:
+        robot_quat = ( 
+                R.from_euler("xyz", env.block_pose[3:]) *
+                R.from_quat([1.0, 0.0, 0.0, 0.0])
+            ).as_quat()
+        robot_quat = np.concatenate((np.array([robot_quat[-1]]), robot_quat[:3]))  # to w, x, y, z
+        approach_t = 20
+        pick_t = 20
+        pause_pick_t = 10
+        grasp_t = 20
+        lift_t = 20 
+        approach_poses = calc_line(
+            [*obs["robot_ee_pos"], *obs["robot_ee_quat"]],
+            [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
+            approach_t
+        )
+        pick_poses = calc_line(
+            [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
+            [*env.block_pose[:3]+ np.array([0, 0, -0.01]), *robot_quat],
+            pick_t
+        )
+        lift_poses = calc_line(
+            [*env.block_pose[:3]+ np.array([0, 0, -0.01]), *robot_quat],
+            [*env.block_pose[:3]+ np.array([0, 0, 0.1]), *robot_quat],
+            lift_t
+        )
+    else:
+        sensitivity = np.array([0.1]*3 + [0.5]*3)
+        last_gripper_cmd = [0.08]  # open
+
+    success_key = False
 
     for step_i in range(horizon):
 
-        # get action from policy
-        # act = np.array([0.5, 0.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.005]) # open gripper
-        # import pdb; pdb.set_trace()
-        # act = np.concat((obs["robot_ee_pos"] + np.array([0.02, 0.0, 0.0]), obs["robot_ee_quat"], np.array([0.005])))
+        if teleop_device is not None:
+            tdc = teleop_device.control
+            teleop_cmd = [tdc[0], tdc[1], tdc[2], tdc[4], -tdc[3], tdc[5]]
+            gripper_cmd = [0.08] if tdc[6]==1 else [0.00] if tdc[6]==2 else last_gripper_cmd
+            last_gripper_cmd = gripper_cmd
 
-        # TEST GO ABOVE BLOCK
-        # import pdb; pdb.set_trace() 
-        # SCALAR LAST! x, y, z, w
-        # robot_quat = ( 
-        #     R.from_euler("xyz", env.block_pose[3:]) *
-        #     R.from_quat([1.0, 0.0, 0.0, 0.0])
-        # ).as_quat()
-        # robot_quat = np.concat((np.array([robot_quat[-1]]), robot_quat[:3]))  # to w, x, y, z
-        # act = np.concat((env.block_pose[:3] + np.array([0, 0, 0.1]), robot_quat, np.array([0.005])))
+            # Get the newest action
+            action = teleop_cmd * sensitivity
 
-        if step_i < approach_t:
-            print("APPROACH")
-            act = np.concat((approach_poses[step_i], np.array([0.08])))
-        elif step_i < approach_t + pick_t:
-            print("picking")
-            act = np.concat((pick_poses[step_i - approach_t], np.array([0.08])))
-        elif step_i < approach_t + pick_t + grasp_t:
-            print("grasping")
-            act = np.concat((pick_poses[-1], np.array([0.005])))
-        # elif step_i < approach_t + pick_t + grasp_t + lift_t:
-        #     act = np.concat((lift_poses[step_i - approach_t - pick_t - grasp_t], np.array([0.0])))
-        # else:
-        #     act = np.concat((lift_poses[-1], np.array([0.06])))
-        # act = np.array([*poses[np.clip(step_i, 0, poses.shape[0]-1)], 0.06])
+            robot_quat = (
+                R.from_quat(quat_w_first_to_last(obs["robot_ee_quat"])) *
+                R.from_euler("xyz", action[3:])
+            ).as_quat()
+            robot_quat = np.concatenate((np.array([robot_quat[-1]]), robot_quat[:3]))  # to w, x, y, z
+
+            act = np.concatenate((obs["robot_ee_pos"] + action[:3], robot_quat, gripper_cmd))
+        else:
+            if step_i < approach_t:
+                print("approaching")
+                act = np.concatenate((approach_poses[step_i], np.array([0.08])))
+            elif step_i < approach_t + pick_t:
+                print("picking")
+                act = np.concatenate((pick_poses[step_i - approach_t], np.array([0.08])))
+            elif step_i < approach_t + pick_t + pause_pick_t:
+                print("pausing at pick")
+                act = np.concatenate((pick_poses[-1], np.array([0.08])))
+            elif step_i < approach_t + pick_t + pause_pick_t + grasp_t:
+                print("grasping")
+                act = np.concatenate((pick_poses[-1], np.array([0.0])))
+            elif step_i < approach_t + pick_t + pause_pick_t + grasp_t + lift_t:
+                print("lifting")
+                act = np.concatenate((lift_poses[step_i - approach_t - pick_t - pause_pick_t  - grasp_t], np.array([0.0])))
+            else:
+                act = np.concatenate((lift_poses[-1], np.array([0.0])))
 
         # play action
         next_obs, r, done, _ = env.step(act)
@@ -220,6 +250,11 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
 
         # break if done or if success
         if done or success:
+            break
+
+        if success_key:
+            print("success key pressed, terminating episode with success")
+            success_key = False
             break
 
         # update for next iter
@@ -301,6 +336,22 @@ def run_trained_agent(args):
         data_grp = data_writer.create_group("data")
         total_samples = 0
 
+    if args.motion_mode == "spacemouse":
+        from robomimic.utils.spacemouse import SpaceMouse
+
+        teleop_device = SpaceMouse(
+            env=env,
+            vendor_id=0x256f,
+            product_id=0xc635,
+            # pos_sensitivity=1,#args.pos_sensitivity,
+            # rot_sensitivity=1,#args.rot_sensitivity,
+        )
+        teleop_device.start_control()
+
+    global success_key
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+
     rollout_stats = []
     for i in range(rollout_num_episodes):
         print("********** ROLLOUT {} **********".format(i))
@@ -313,6 +364,8 @@ def run_trained_agent(args):
             video_skip=args.video_skip, 
             return_obs=(write_dataset and args.dataset_obs),
             camera_names=args.camera_names,
+            teleop_device=teleop_device if args.motion_mode == "spacemouse" else None,
+            keyboard_listener=listener
         )
         rollout_stats.append(stats)
 
@@ -367,7 +420,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_rollouts",
         type=int,
-        default=50,
+        default=10,
         help="number of rollouts",
     )
 
@@ -375,7 +428,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--horizon",
         type=int,
-        default=60,
+        default=600,
         help="(optional) override maximum horizon of rollout from the one in the checkpoint",
     )
 
@@ -416,7 +469,7 @@ if __name__ == "__main__":
         "--camera_names",
         type=str,
         nargs='+',
-        default=["agentview"],
+        default=["fr3_camera_image", "external_camera_image"],
         help="(optional) camera name(s) to use for rendering on-screen or to video",
     )
 
@@ -442,6 +495,13 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="(optional) set seed for rollouts",
+    )
+
+    parser.add_argument(
+        "--motion_mode",
+        type=str,
+        default="spacemouse",
+        help="'scripted' (robot follows programmed path) or 'spacemouse' (3D mouse)",
     )
 
     args = parser.parse_args()

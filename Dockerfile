@@ -91,7 +91,7 @@ RUN /opt/conda/bin/conda run -n robomimic_venv conda install -y pytorch==2.0.0 t
 RUN /opt/conda/bin/conda run -n robomimic_venv pip install robosuite
 
 # Install additional packages
-RUN /opt/conda/bin/conda run -n robomimic_venv pip install wandb
+RUN /opt/conda/bin/conda run -n robomimic_venv pip install wandb rospkg pytransform3d hidapi
 
 # Configure Gazebo to use GPU
 RUN mkdir -p /root/.gazebo && \

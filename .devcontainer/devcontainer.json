@@ -12,7 +12,8 @@
     "--shm-size=8g",
     "--privileged",
     "--env=DISPLAY=${localEnv:DISPLAY}",
-    "--device=/dev/dri:/dev/dri"
+    "--device=/dev/dri:/dev/dri",
+    "--network=host"
   ],
   "forwardPorts": [11311],
   "portsAttributes": {
@@ -54,6 +55,9 @@
     "NVIDIA_DRIVER_CAPABILITIES": "all",
     "QT_X11_NO_MITSHM": "1",
     "__NV_PRIME_RENDER_OFFLOAD": "1",
-    "__GLX_VENDOR_LIBRARY_NAME": "nvidia"
+    "__GLX_VENDOR_LIBRARY_NAME": "nvidia",
+    "MUJOCO_GL" : "glfw",
+    "ROS_MASTER_URI": "http://128.131.81.187:11311",
+    "ROS_IP": "128.131.81.182"
   }
 }

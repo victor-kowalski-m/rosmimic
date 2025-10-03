@@ -393,6 +393,10 @@ def policy_from_checkpoint(device=None, ckpt_path=None, ckpt_dict=None, verbose=
             re-loading checkpoint from disk multiple times)
     """
     ckpt_dict = maybe_dict_from_checkpoint(ckpt_path=ckpt_path, ckpt_dict=ckpt_dict)
+    ckpt_dict['env_metadata'] = ckpt_dict['env_metadata'][0]
+    ckpt_dict['shape_metadata'] = ckpt_dict['shape_metadata'][0]
+    # import pdb
+    # pdb.set_trace()
 
     # algo name and config from model dict
     algo_name, _ = algo_name_from_checkpoint(ckpt_dict=ckpt_dict)

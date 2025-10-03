@@ -468,7 +468,7 @@ def main(args):
         config = config_factory(args.algo)
 
     if args.dataset is not None:
-        config.train.data = [{"path": args.dataset}]
+        config.train.data = [{"path": ds_path} for ds_path in  args.dataset]
 
     if args.name is not None:
         config.experiment.name = args.name
@@ -538,7 +538,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset",
         type=str,
-        default=None,
+        nargs='+',
+        default=["datasets/real/real1_10.hdf5", "datasets/real/real2_10.hdf5", "datasets/real/real3_10.hdf5", "datasets/real/real4_10.hdf5", "datasets/real/real5_10.hdf5"],
         help="(optional) if provided, override the dataset path defined in the config",
     )
 

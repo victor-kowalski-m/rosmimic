@@ -84,12 +84,12 @@ class EnvGazebo(EB.EnvBase):
 
         # Subscribe to observation topics
         self._fr3_camera_sub = rospy.Subscriber(
-            '/hand/camera/color/reshaped/compressed',
+            '/fr3_camera/image_raw/compressed',
             CompressedImage,
             self._fr3_camera_callback
         )
         self._external_camera_sub = rospy.Subscriber(
-            '/ext/camera/color/reshaped/compressed',
+            '/camera/image_raw/compressed',
             CompressedImage,
             self._external_camera_callback
         )
@@ -106,7 +106,7 @@ class EnvGazebo(EB.EnvBase):
 
         # Publishers for action topics
         self._equilibrium_pose_pub = rospy.Publisher(
-            '/cartesian_impedance_controller_damping_ratio/equilibrium_pose',
+            '/cartesian_impedance_example_controller/equilibrium_pose',
             PoseStamped,
             queue_size=10
         )
@@ -166,8 +166,8 @@ class EnvGazebo(EB.EnvBase):
         self.joint_traj_client.wait_for_server()
 
         # Service clients
-        # rospy.wait_for_service('/gazebo/set_model_state', timeout=30)
-        # self.set_model_state_client = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+        rospy.wait_for_service('/gazebo/set_model_state', timeout=30)
+        self.set_model_state_client = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
 
         # Wait for initial observations
         rospy.sleep(0.5)
@@ -237,11 +237,11 @@ class EnvGazebo(EB.EnvBase):
         if action[7] < 0.03 and self._gripper_open:  # Assuming a threshold for closing the gripper
             print("Closing gripper")
             grasp_msg = GraspActionGoal()
-            grasp_msg.goal.width = 0.0  # Desired gripper width
-            grasp_msg.goal.force = 60 # Grasping force
+            grasp_msg.goal.width = 0.035  # Desired gripper width
+            grasp_msg.goal.force = 130 # Grasping force
             grasp_msg.goal.speed = 0.1  # Default speed
-            grasp_msg.goal.epsilon.inner = 0.2
-            grasp_msg.goal.epsilon.outer = 0.2
+            grasp_msg.goal.epsilon.inner = 0.05
+            grasp_msg.goal.epsilon.outer = 0.05
             self._gripper_grasp_pub.publish(grasp_msg)
             self._gripper_open = False
         elif action[7] >= 0.05 and not self._gripper_open:  # Assuming a threshold for opening the gripper
@@ -289,7 +289,7 @@ class EnvGazebo(EB.EnvBase):
 
         if self._gripper_joint_state is not None:
             # obs['gripper_position'] = np.array(self._gripper_joint_state.position)
-            obs['gripper_position'] = np.reshape(np.sum(self._gripper_joint_state.position)/0.08, [1])
+            obs['gripper_position'] = np.sum(self._gripper_joint_state.position)/0.08
         return obs
     
     def randomize_block_pose(self):
@@ -324,14 +324,14 @@ class EnvGazebo(EB.EnvBase):
             # Zero velocity
             block_state.twist = Twist()
             
-            # response = self.set_model_state_client(block_state)
+            response = self.set_model_state_client(block_state)
             
-            # if response.success:
-            #     rospy.loginfo(f"Block positioned at ({x:.3f}, {y:.3f}, {z:.3f})")
-            #     return True
-            # else:
-            #     rospy.logerr(f"Failed to set block position: {response.status_message}")
-            #     return False
+            if response.success:
+                rospy.loginfo(f"Block positioned at ({x:.3f}, {y:.3f}, {z:.3f})")
+                return True
+            else:
+                rospy.logerr(f"Failed to set block position: {response.status_message}")
+                return False
                 
         except Exception as e:
             rospy.logerr(f"Error setting block position: {e}")
@@ -358,7 +358,7 @@ class EnvGazebo(EB.EnvBase):
         point.time_from_start = rospy.Duration.from_sec(
             # Use either the time to move the furthest joint with 'max_dq' or 500ms,
             # whatever is greater
-            max(max_movement / rospy.get_param('~max_dq', 0.2), 3)
+            max(max_movement / rospy.get_param('~max_dq', 0.5), 0.5)
         )
         goal = FollowJointTrajectoryGoal()
 
@@ -366,7 +366,7 @@ class EnvGazebo(EB.EnvBase):
         point.velocities = [0] * len(pose)
 
         goal.trajectory.points.append(point)
-        goal.goal_time_tolerance = rospy.Duration.from_sec(3)
+        goal.goal_time_tolerance = rospy.Duration.from_sec(0.5)
 
         rospy.loginfo('Sending trajectory Goal to move into initial config')
         # import pdb; pdb.set_trace()
@@ -410,7 +410,7 @@ class EnvGazebo(EB.EnvBase):
 
             # Stop current controller
             self.switch_controller_client(
-                stop_controllers=['cartesian_impedance_controller_damping_ratio'],
+                stop_controllers=['cartesian_impedance_example_controller'],
                 start_controllers=['effort_joint_trajectory_controller'],
                 strictness=2,
                 timeout=0,
@@ -456,7 +456,7 @@ class EnvGazebo(EB.EnvBase):
             # Restart controller
             self.switch_controller_client(
                 stop_controllers=['effort_joint_trajectory_controller'],
-                start_controllers=['cartesian_impedance_controller_damping_ratio'],
+                start_controllers=['cartesian_impedance_example_controller'],
                 strictness=2,
                 timeout=0,
                 start_asap=False
@@ -472,7 +472,7 @@ class EnvGazebo(EB.EnvBase):
             try:
                 self.switch_controller_client(
                     stop_controllers=['effort_joint_trajectory_controller'],
-                    start_controllers=['cartesian_impedance_controller_damping_ratio'],
+                    start_controllers=['cartesian_impedance_example_controller'],
                     strictness=2,
                     timeout=0,
                     start_asap=False
@@ -489,8 +489,9 @@ class EnvGazebo(EB.EnvBase):
             observation (dict): initial observation dictionary.
         """
 
+        self._error_recovery_pub.publish(ErrorRecoveryActionGoal())
 
-        self._error_recovery_pub.publish(ErrorRecoveryActionGoal())        
+        self.reset_robot_joints()
 
 
         grasp_msg = MoveActionGoal()
@@ -499,8 +500,6 @@ class EnvGazebo(EB.EnvBase):
         self._gripper_move_pub.publish(grasp_msg)
 
         self._gripper_open = True
-
-        self.reset_robot_joints()
 
         # Wait for fresh observations
         rospy.sleep(1)
@@ -525,7 +524,7 @@ class EnvGazebo(EB.EnvBase):
             width (int): width of image to render - only used if mode is "rgb_array"
         """
         if mode == "rgb_array":
-            # return self._current_obs[camera_name]
+            return self._current_obs[camera_name]
             return getattr(self, f"_{camera_name}", None)
         
             if self._external_camera_image is not None:
