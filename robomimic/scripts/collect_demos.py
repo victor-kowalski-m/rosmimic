@@ -1,56 +1,3 @@
-"""
-The main script for evaluating a policy in an environment.
-
-Args:
-    agent (str): path to saved checkpoint pth file
-
-    horizon (int): if provided, override maximum horizon of rollout from the one 
-        in the checkpoint
-
-    env (str): if provided, override name of env from the one in the checkpoint,
-        and use it for rollouts
-
-    render (bool): if flag is provided, use on-screen rendering during rollouts
-
-    video_path (str): if provided, render trajectories to this video file path
-
-    video_skip (int): render frames to a video every @video_skip steps
-
-    camera_names (str or [str]): camera name(s) to use for rendering on-screen or to video
-
-    dataset_path (str): if provided, an hdf5 file will be written at this path with the
-        rollout data
-
-    dataset_obs (bool): if flag is provided, and @dataset_path is provided, include 
-        possible high-dimensional observations in output dataset hdf5 file (by default,
-        observations are excluded and only simulator states are saved).
-
-    seed (int): if provided, set seed for rollouts
-
-Example usage:
-
-    # Evaluate a policy with 50 rollouts of maximum horizon 400 and save the rollouts to a video.
-    # Visualize the agentview and wrist cameras during the rollout.
-    
-    python run_trained_agent.py --agent /path/to/model.pth \
-        --n_rollouts 50 --horizon 400 --seed 0 \
-        --video_path /path/to/output.mp4 \
-        --camera_names agentview robot0_eye_in_hand 
-
-    # Write the 50 agent rollouts to a new dataset hdf5.
-
-    python run_trained_agent.py --agent /path/to/model.pth \
-        --n_rollouts 50 --horizon 400 --seed 0 \
-        --dataset_path /path/to/output.hdf5 --dataset_obs 
-
-    # Write the 50 agent rollouts to a new dataset hdf5, but exclude the dataset observations
-    # since they might be high-dimensional (they can be extracted again using the
-    # dataset_states_to_obs.py script).
-
-    python run_trained_agent.py --agent /path/to/model.pth \
-        --n_rollouts 50 --horizon 400 --seed 0 \
-        --dataset_path /path/to/output.hdf5
-"""
 import argparse
 import json
 import h5py
@@ -60,15 +7,11 @@ from copy import deepcopy
 
 import torch
 
-import robomimic
-import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.torch_utils as TorchUtils
 import robomimic.utils.tensor_utils as TensorUtils
-import robomimic.utils.obs_utils as ObsUtils
-from robomimic.envs.env_base import EnvBase
-from robomimic.envs.env_gazebo import EnvGazebo
+from robomimic.utils.env_utils import get_env_class
+from robomimic.envs.env_base import EnvBase, EnvType
 from robomimic.envs.wrappers import EnvWrapper
-from robomimic.algo import RolloutPolicy
 from scipy.spatial.transform import Rotation as R, Slerp
 from pynput import keyboard
 
@@ -284,7 +227,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
     return stats, traj
 
 
-def run_trained_agent(args):
+def collect_demos(args):
     # some arg checking
     write_video = (args.video_path is not None)
     assert not (args.render and write_video) # either on-screen or video but not both
@@ -292,32 +235,15 @@ def run_trained_agent(args):
         # on-screen rendering can only support one camera
         assert len(args.camera_names) == 1
 
-    # relative path to agent
-    # ckpt_path = args.agent
-
     # device
     device = TorchUtils.get_torch_device(try_to_use_cuda=True)
-
-    # # restore policy
-    # policy, ckpt_dict = FileUtils.policy_from_checkpoint(ckpt_path=ckpt_path, device=device, verbose=True)
 
     # read rollout settings
     rollout_num_episodes = args.n_rollouts
     rollout_horizon = args.horizon
-    # if rollout_horizon is None:
-        # read horizon from config
-        # config, _ = FileUtils.config_from_checkpoint(ckpt_dict=ckpt_dict)
-        # rollout_horizon = config.experiment.rollout.horizon
 
-    # create environment from saved checkpoint
-    # env, _ = FileUtils.env_from_checkpoint(
-    #     ckpt_dict=ckpt_dict, 
-    #     env_name=args.env, 
-    #     render=args.render, 
-    #     render_offscreen=(args.video_path is not None), 
-    #     verbose=True,
-    # )
-    env = EnvGazebo("PickBlock")
+    env_class = get_env_class(env_type=getattr(EnvType, args.env + "_TYPE"))
+    env = env_class("PickBlock")
 
     # maybe set seed
     if args.seed is not None:
@@ -408,14 +334,6 @@ def run_trained_agent(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    # Path to trained model
-    parser.add_argument(
-        "--agent",
-        type=str,
-        default=None,
-        help="path to saved checkpoint pth file",
-    )
-
     # number of rollouts
     parser.add_argument(
         "--n_rollouts",
@@ -436,9 +354,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env",
         type=str,
-        default=None,
-        help="(optional) override name of env from the one in the checkpoint, and use\
-            it for rollouts",
+        default="GAZEBO",
+        help="GAZEBO or REAL",
     )
 
     # Whether to render rollouts to screen
@@ -505,5 +422,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    run_trained_agent(args)
+    collect_demos(args)
 
