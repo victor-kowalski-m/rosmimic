@@ -534,13 +534,13 @@ if __name__ == "__main__":
         help="(optional) if provided, override the experiment name defined in the config",
     )
 
-    # Dataset path, to override the one in the config
+    # Datasets paths, to override the one in the config
     parser.add_argument(
-        "--dataset",
+        "--datasets",
         type=str,
         nargs='+',
         default=["datasets/real/real1_10.hdf5", "datasets/real/real2_10.hdf5", "datasets/real/real3_10.hdf5", "datasets/real/real4_10.hdf5", "datasets/real/real5_10.hdf5"],
-        help="(optional) if provided, override the dataset path defined in the config",
+        help="(optional) if provided, override the dataset path defined in the config. Uses the env config from the first one in the list.",
     )
 
     # debug mode
