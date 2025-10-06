@@ -34,7 +34,7 @@ from scipy.spatial.transform import Rotation as R
 import cv2
 from franka_msgs.msg import ErrorRecoveryActionGoal
 
-class EnvGazebo(EB.EnvBase):
+class EnvRealFranka(EB.EnvBase):
     """Wrapper class for gym"""
     def __init__(
         self,
@@ -644,16 +644,8 @@ class EnvGazebo(EB.EnvBase):
         Returns environment type (int) for this kind of environment.
         This helps identify this env class.
         """
-        return EB.EnvType.GAZEBO_TYPE
+        return EB.EnvType.REAL_TYPE
     
-    @property
-    def type(self):
-        """
-        Returns environment type (int) for this kind of environment.
-        This helps identify this env class.
-        """
-        return EB.EnvType.GAZEBO_TYPE
-
     def serialize(self):
         """
         Save all information needed to re-instantiate this environment in a dictionary.

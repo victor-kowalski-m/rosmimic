@@ -16,6 +16,7 @@ class EnvType:
     IG_MOMART_TYPE = 3
     SERL_TYPE = 4
     GAZEBO_TYPE = 5
+    REAL_TYPE = 6
 
 
 class EnvBase(abc.ABC):

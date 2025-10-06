@@ -237,11 +237,11 @@ class EnvGazebo(EB.EnvBase):
         if action[7] < 0.03 and self._gripper_open:  # Assuming a threshold for closing the gripper
             print("Closing gripper")
             grasp_msg = GraspActionGoal()
-            grasp_msg.goal.width = 0.035  # Desired gripper width
-            grasp_msg.goal.force = 130 # Grasping force
+            grasp_msg.goal.width = 0.0  # Desired gripper width
+            grasp_msg.goal.force = 60 # Grasping force
             grasp_msg.goal.speed = 0.1  # Default speed
-            grasp_msg.goal.epsilon.inner = 0.05
-            grasp_msg.goal.epsilon.outer = 0.05
+            grasp_msg.goal.epsilon.inner = 0.2
+            grasp_msg.goal.epsilon.outer = 0.2
             self._gripper_grasp_pub.publish(grasp_msg)
             self._gripper_open = False
         elif action[7] >= 0.05 and not self._gripper_open:  # Assuming a threshold for opening the gripper
@@ -289,7 +289,7 @@ class EnvGazebo(EB.EnvBase):
 
         if self._gripper_joint_state is not None:
             # obs['gripper_position'] = np.array(self._gripper_joint_state.position)
-            obs['gripper_position'] = np.sum(self._gripper_joint_state.position)/0.08
+            obs['gripper_position'] = np.reshape(np.sum(self._gripper_joint_state.position)/0.08, [1])
         return obs
     
     def randomize_block_pose(self):
@@ -489,9 +489,8 @@ class EnvGazebo(EB.EnvBase):
             observation (dict): initial observation dictionary.
         """
 
-        self._error_recovery_pub.publish(ErrorRecoveryActionGoal())
 
-        self.reset_robot_joints()
+        self._error_recovery_pub.publish(ErrorRecoveryActionGoal())
 
 
         grasp_msg = MoveActionGoal()
@@ -500,6 +499,8 @@ class EnvGazebo(EB.EnvBase):
         self._gripper_move_pub.publish(grasp_msg)
 
         self._gripper_open = True
+
+        self.reset_robot_joints()
 
         # Wait for fresh observations
         rospy.sleep(1)
