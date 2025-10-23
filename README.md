@@ -81,6 +81,8 @@ https://github.com/user-attachments/assets/37e1e820-3c57-417b-a44d-01e707372b20
 
 Policy trained from teleoperated demos (with SpaceMouse):
 
-https://github.com/user-attachments/assets/37e1e820-3c57-417b-a44d-01e707372b20
+https://github.com/user-attachments/assets/80d84bd2-5dbc-4647-9aa7-3e4e00f0fcf9
+
+
 
 
