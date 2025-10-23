@@ -41,15 +41,15 @@ def get_env_class(env_meta=None, env_type=None, env=None):
     elif env_type == EB.EnvType.IG_MOMART_TYPE:
         from robomimic.envs.env_ig_momart import EnvGibsonMOMART
         return EnvGibsonMOMART
-    elif env_type == EB.EnvType.SERL_TYPE:
-        from robomimic.envs.env_serl import EnvSERL
-        return EnvSERL
     elif env_type == EB.EnvType.REAL_TYPE:
         from robomimic.envs.env_real_franka import EnvRealFranka
         return EnvRealFranka
     elif env_type == EB.EnvType.GAZEBO_TYPE:
         from robomimic.envs.env_gazebo_franka import EnvGazeboFranka
         return EnvGazeboFranka
+    elif env_type == EB.EnvType.SERL_TYPE:
+        from robomimic.envs.env_franka_serl import EnvFrankaSERL
+        return EnvFrankaSERL
     raise Exception("code should never reach this point")
 
 

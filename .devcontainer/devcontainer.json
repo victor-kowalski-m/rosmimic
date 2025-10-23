@@ -1,6 +1,6 @@
 {
   "name": "Robomimic Dev Environment",
-  "image": "robomimic",
+  "image": "rosmimic",
   "workspaceFolder": "/workspace",
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
@@ -57,7 +57,7 @@
     "__NV_PRIME_RENDER_OFFLOAD": "1",
     "__GLX_VENDOR_LIBRARY_NAME": "nvidia",
     "MUJOCO_GL" : "glfw",
-    "ROS_MASTER_URI": "http://128.131.81.187:11311",
-    "ROS_IP": "128.131.81.182"
+    "ROS_MASTER_URI": "http://128.131.81.186:11311",
+    "ROS_IP": "128.131.81.186"
   }
 }

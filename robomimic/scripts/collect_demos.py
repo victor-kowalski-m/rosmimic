@@ -16,12 +16,16 @@ from scipy.spatial.transform import Rotation as R, Slerp
 from pynput import keyboard
 
 success_key = False
+end_key = False
 def on_press(key):
     global success_key
     try:
         if str(key) == "'e'":
             print("success key pressed")
             success_key = True
+        if str(key) == "'x'":
+            print("end key pressed")
+            end_key = True
     except AttributeError:
         pass
 
@@ -72,6 +76,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
         traj (dict): dictionary that corresponds to the rollout trajectory
     """
     global success_key
+    global end_key
 
     assert isinstance(env, EnvBase) or isinstance(env, EnvWrapper)
     # assert isinstance(policy, RolloutPolicy)
@@ -120,8 +125,8 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
             lift_t
         )
     else:
-        sensitivity = np.array([0.1]*3 + [0.5]*3)
-        last_gripper_cmd = [0.08]  # open
+        sensitivity = np.array([0.05]*3 + [0.25]*3)
+        last_gripper_cmd = [0.05]  # open
 
     success_key = False
 
@@ -130,7 +135,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
         if teleop_device is not None:
             tdc = teleop_device.control
             teleop_cmd = [tdc[0], tdc[1], tdc[2], tdc[4], -tdc[3], tdc[5]]
-            gripper_cmd = [0.08] if tdc[6]==1 else [0.00] if tdc[6]==2 else last_gripper_cmd
+            gripper_cmd = [0.05] if tdc[6]==1 else [0.00] if tdc[6]==2 else last_gripper_cmd
             last_gripper_cmd = gripper_cmd
 
             # Get the newest action
@@ -199,6 +204,11 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
             print("success key pressed, terminating episode with success")
             success_key = False
             break
+        if end_key:
+            print('End key pressed!')
+            import time
+            time.sleep(3)
+            import pdb; pdb.set_trace()
 
         # update for next iter
         obs = deepcopy(next_obs)
@@ -275,6 +285,7 @@ def collect_demos(args):
         teleop_device.start_control()
 
     global success_key
+    global end_key
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
@@ -338,7 +349,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_rollouts",
         type=int,
-        default=10,
+        default=3,
         help="number of rollouts",
     )
 
