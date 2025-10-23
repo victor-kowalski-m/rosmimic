@@ -101,7 +101,7 @@ def rollout(policy, env, horizon, render=False, video_writer=None, video_skip=5,
     state_dict = env.get_state()
 
     # hack that is necessary for robosuite tasks for deterministic action playback
-    if not env.type == EnvType.GAZEBO_TYPE:
+    if not env.type in (EnvType.REAL_TYPE, EnvType.GAZEBO_TYPE, EnvType.SERL_TYPE):
         obs = env.reset_to(state_dict)
 
     results = {}

@@ -687,7 +687,7 @@ class EnvFrankaSERL(EB.EnvBase):
         Returns environment type (int) for this kind of environment.
         This helps identify this env class.
         """
-        return EB.EnvType.REAL_TYPE
+        return EB.EnvType.SERL_TYPE
     
     def serialize(self):
         """

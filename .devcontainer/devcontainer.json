@@ -1,9 +1,9 @@
 {
   "name": "Robomimic Dev Environment",
   "image": "rosmimic",
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/rosmimic",
   "mounts": [
-    "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "source=${localWorkspaceFolder},target=/rosmimic,type=bind",
     "source=claude-config,target=/root/.claude,type=volume",
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
   ],
@@ -33,18 +33,7 @@
       ],
       "settings": {
         "python.defaultInterpreterPath": "/opt/conda/envs/robomimic_venv/bin/python",
-        "python.terminal.activateEnvironment": false,
-        "terminal.integrated.profiles.linux": {
-          "ROS": {
-            "path": "/bin/bash",
-            "args": ["-c", "source ~/ros_env.sh && exec bash"]
-          },
-          "Conda": {
-            "path": "/bin/bash", 
-            "args": ["-c", "source ~/conda_env.sh && exec bash"]
-          }
-        },
-        "terminal.integrated.defaultProfile.linux": "ROS"
+        "python.terminal.activateEnvironment": false
       }
       }
     },

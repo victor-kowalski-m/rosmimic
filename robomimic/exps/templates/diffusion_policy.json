@@ -1,18 +1,18 @@
 {
     "algo_name": "diffusion_policy",
     "experiment": {
-        "name": "real_50",
+        "name": "pick_place_gear_50",
         "validate": false,
         "logging": {
             "terminal_output_to_txt": true,
             "log_tb": true,
             "log_wandb": true,
-            "wandb_proj_name": "robomimic_diffusion"
+            "wandb_proj_name": "rosmimic"
         },
         "save": {
             "enabled": true,
             "every_n_seconds": null,
-            "every_n_epochs": 50,
+            "every_n_epochs": 25,
             "epochs": [],
             "on_best_validation": false,
             "on_best_rollout_return": false,

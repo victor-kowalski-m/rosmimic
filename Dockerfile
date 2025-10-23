@@ -93,43 +93,25 @@ RUN /opt/conda/bin/conda run -n robomimic_venv pip install robosuite
 # Install additional packages
 RUN /opt/conda/bin/conda run -n robomimic_venv pip install wandb rospkg pytransform3d hidapi
 
+# Install additional packages
+RUN /opt/conda/bin/conda run -n robomimic_venv pip install "numpy<2.0" "opencv-python<4.8"
+
 # Configure Gazebo to use GPU
 RUN mkdir -p /root/.gazebo && \
     echo "export LIBGL_ALWAYS_SOFTWARE=0" >> /root/.bashrc && \
     echo "export GAZEBO_MODEL_PATH=/usr/share/gazebo-11/models:\$GAZEBO_MODEL_PATH" >> /root/.bashrc
 
-# Create helper scripts for switching between ROS and Conda environments
-RUN echo '#!/bin/bash\n\
-# Source this script to set up ROS environment\n\
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n\
-source /opt/ros/noetic/setup.bash\n\
-source /workspace/catkin_ws/devel/setup.bash\n\
-echo "ROS environment activated. Conda is disabled."\n\
-echo "To use conda, run: source ~/conda_env.sh"' > /root/ros_env.sh && \
-    chmod +x /root/ros_env.sh
-
-RUN echo '#!/bin/bash\n\
-# Source this script to set up Conda environment\n\
-export PATH="/opt/conda/bin:$PATH"\n\
-source /opt/conda/etc/profile.d/conda.sh\n\
-conda activate robomimic_venv\n\
-echo "Conda environment activated."\n\
-echo "To use ROS, run: source ~/ros_env.sh"' > /root/conda_env.sh && \
-    chmod +x /root/conda_env.sh
-
-# Setup bashrc to default to ROS environment (conda disabled by default)
-RUN echo "# ROS setup (default)" >> /root/.bashrc && \
+# Setup bashrc to always use conda with ROS sourced first
+RUN echo "# ROS setup" >> /root/.bashrc && \
+    echo "export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" >> /root/.bashrc && \
     echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc && \
-    echo "" >> /root/.bashrc && \
-    echo "# Helper aliases" >> /root/.bashrc && \
-    echo "alias use_ros='source ~/ros_env.sh'" >> /root/.bashrc && \
-    echo "alias use_conda='source ~/conda_env.sh'" >> /root/.bashrc && \
-    echo "" >> /root/.bashrc && \
-    echo "echo 'Environment: ROS (default)'" >> /root/.bashrc && \
-    echo "echo 'Switch to conda: use_conda'" >> /root/.bashrc
+    echo "# Conda setup" >> /root/.bashrc && \
+    echo "export PATH=\"/opt/conda/bin:\$PATH\"" >> /root/.bashrc && \
+    echo "source /opt/conda/etc/profile.d/conda.sh" >> /root/.bashrc && \
+    echo "conda activate robomimic_venv" >> /root/.bashrc
 
 # Set the working directory
-WORKDIR /workspace
+WORKDIR /rosmimic
 
 # Start with ROS environment by default
 CMD ["/bin/bash"]
