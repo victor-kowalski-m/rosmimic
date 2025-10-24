@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<robot name="fr3" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:include filename="$(find franka_description)/robots/fr3/fr3.urdf.xacro" />
+    
+    <xacro:property name="camera_link_name" value="fr3_camera_link" />
+    <xacro:property name="camera_mount_link" value="fr3_link8" />
+    <xacro:property name="camera_x" value="0.05" />
+    <xacro:property name="camera_y" value="-0.05" />
+    <xacro:property name="camera_z" value="-0.01" />
+    <xacro:property name="camera_roll" value="0" />
+    <xacro:property name="camera_pitch" value="-1.9198621771937625" />
+    <xacro:property name="camera_yaw" value="-0.7853981633974483" />
+    <xacro:property name="camera_width" value="640" />
+    <xacro:property name="camera_height" value="640" />
+    <xacro:property name="camera_fov" value="1.047" />
+    <xacro:property name="camera_update_rate" value="30.0" />
+    <xacro:property name="camera_topic" value="fr3_camera/image_raw" />
+    <xacro:property name="camera_info_topic" value="fr3_camera/camera_info" />
+    <xacro:property name="camera_frame_name" value="${camera_link_name}_optical_frame" />
+
+    <!-- Camera link -->
+    <link name="${camera_link_name}">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.02 0.02 0.02"/>
+            </geometry>
+            <material name="blue">
+                <color rgba="0 0 1 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.02 0.02 0.02"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.01"/>
+            <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+        </inertial>
+    </link>
+
+    <!-- Camera optical frame (important for proper image orientation) -->
+    <link name="${camera_link_name}_optical_frame"/>
+
+    <!-- Joint to mount camera on robot -->
+    <joint name="${camera_link_name}_joint" type="fixed">
+        <parent link="${camera_mount_link}"/>
+        <child link="${camera_link_name}"/>
+        <origin xyz="${camera_x} ${camera_y} ${camera_z}" rpy="${camera_roll} ${camera_pitch} ${camera_yaw}"/>
+    </joint>
+
+    <!-- Joint for optical frame (standard camera convention: x=right, y=down, z=forward) -->
+    <joint name="${camera_link_name}_optical_joint" type="fixed">
+        <parent link="${camera_link_name}"/>
+        <child link="${camera_link_name}_optical_frame"/>
+        <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+    </joint>
+
+    <!-- Gazebo camera sensor -->
+    <gazebo reference="${camera_link_name}">
+        <sensor type="camera" name="fr3_camera_sensor">
+            <update_rate>${camera_update_rate}</update_rate>
+            <visualize>true</visualize>
+            <camera name="head">
+                <horizontal_fov>${camera_fov}</horizontal_fov>
+                <image>
+                    <width>${camera_width}</width>
+                    <height>${camera_height}</height>
+                    <format>R8G8B8</format>
+                </image>
+                <clip>
+                    <near>0.01</near>
+                    <far>100</far>
+                </clip>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.007</stddev>
+                </noise>
+            </camera>
+            <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+                <alwaysOn>true</alwaysOn>
+                <updateRate>${camera_update_rate}</updateRate>
+                <cameraName>fr3_camera</cameraName>
+                <imageTopicName>image_raw</imageTopicName>
+                <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+                <frameName>${camera_frame_name}</frameName>
+                <hackBaseline>0.07</hackBaseline>
+                <distortionK1>0.0</distortionK1>
+                <distortionK2>0.0</distortionK2>
+                <distortionK3>0.0</distortionK3>
+                <distortionT1>0.0</distortionT1>
+                <distortionT2>0.0</distortionT2>
+            </plugin>
+        </sensor>
+    </gazebo>
+</robot>

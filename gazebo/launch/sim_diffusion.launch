@@ -1,0 +1,82 @@
+<launch>
+  <param name="/use_sim_time" value="true"/>
+  <arg name="world" default="$(find gazebo_ros)/worlds/empty.world"/>
+  <arg name="robot" default="fr3"/>
+  <arg name="arm_id" default="fr3"/>
+  <arg name="load_gripper" default="true" doc="Whether to load the gripper"/>
+  <arg name="rviz" default="false"/>
+  <arg name="controller" value="cartesian_impedance_example_controller" />
+
+    <!-- Declare pose arguments -->
+  <arg name="x" default="0.5"/>
+  <arg name="y" default="0.0"/>
+  <arg name="z" default="0.025"/>
+  <arg name="roll" default="0.0"/>
+  <arg name="pitch" default="0.0"/>
+  <arg name="yaw" default="0.0"/>
+
+
+  <include file="gazebo/launch/fr3_with_camera.launch">
+  <arg name="robot" value="$(arg robot)"/>
+  <arg name="controller" value="$(arg controller)"/>
+  <arg name="arm_id" value="fr3"/>
+  <arg name="use_gripper" value="true"/>
+  <arg name="headless" value="false"/>
+    </include>
+
+  <!-- Optional: RViz -->
+  <group if="$(arg rviz)">
+    <node name="rviz" pkg="rviz" type="rviz" respawn="false" output="screen"
+          args="-d $(find franka_description)/rviz/fr3_basic.rviz" />
+  </group>
+
+  <!-- Spawn block -->
+  <!-- <param name="block_description" command="$(find xacro)/xacro gazebo/urdf/block.urdf" />
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_block" output="screen"
+        args="-urdf -param block_description -model pick_block 
+              -x $(arg x)
+              -y $(arg y)
+              -z $(arg z)
+              -R $(arg roll)
+              -P $(arg pitch)
+              -Y $(arg yaw)" /> -->
+
+  
+  <!-- External recording camera -->
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_external_camera" output="screen"
+      args="-sdf -file /rosmimic/gazebo/urdf/external_camera.sdf -model external_camera
+            -x 0.8 -y 0.0 -z 0.5
+            -R 0.0 -P 1 -Y -3.1416" />
+
+  <!-- Spawn block -->
+  <node pkg="gazebo_ros" type="spawn_model" name="spawn_block" output="screen"
+      args="-sdf -file /rosmimic/gazebo/urdf/block.sdf -model pick_block
+            -x $(arg x)
+              -y $(arg y)
+              -z $(arg z)
+              -R $(arg roll)
+              -P $(arg pitch)
+              -Y $(arg yaw)"/>
+
+
+  <!-- Reset Service (optional but recommended) 
+  <node pkg="fr3_pick_task" type="reset_service_server.py" name="simulation_reset_service" output="screen">
+    <param name="arm_id" value="fr3"/>
+    <param name="block_x" value="$(arg x)"/>
+    <param name="block_y" value="$(arg y)"/>
+    <param name="block_z" value="$(arg z)"/>
+    <param name="block_roll" value="$(arg roll)"/>
+    <param name="block_pitch" value="$(arg pitch)"/>
+    <param name="block_yaw" value="$(arg yaw)"/>
+  </node> -->
+
+    <!-- Robomimic inference node 
+  <node pkg="fr3_pick_task" type="droid_inference_node.py" name="droid_inference_node" output="screen">
+    <param name="ckpt_path" value="gazebo/policy/model_epoch_200.pth" />
+    <param name="camera_topic" value="/fr3_camera/image_raw" />
+    <param name="gripper_topic" value="/franka_gripper/joint_states" />
+    <param name="ee_pose_topic" value="/cartesian_impedance_example_controller/equilibrium_pose" />
+  </node> -->
+
+
+</launch>
