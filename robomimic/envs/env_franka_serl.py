@@ -236,7 +236,7 @@ class EnvFrankaSERL(EB.EnvBase):
 
         self._equilibrium_pose_pub.publish(pose_msg)
         # Control gripper
-        if action[7] < 0.03 and self._gripper_open:  # Assuming a threshold for closing the gripper
+        if action[7] <= 0.04 and self._gripper_open:  # Assuming a threshold for closing the gripper
             print("Closing gripper")
             grasp_msg = GraspActionGoal()
             grasp_msg.goal.width = 0.0  # Desired gripper width
@@ -246,7 +246,7 @@ class EnvFrankaSERL(EB.EnvBase):
             grasp_msg.goal.epsilon.outer = 0.2
             self._gripper_grasp_pub.publish(grasp_msg)
             self._gripper_open = False
-        elif action[7] >= 0.05 and not self._gripper_open:  # Assuming a threshold for opening the gripper
+        elif action[7] >= 0.045 and not self._gripper_open:  # Assuming a threshold for opening the gripper
             print("Opening gripper")
             grasp_msg = MoveActionGoal()
             grasp_msg.goal.width = action[7]  # Desired gripper width
