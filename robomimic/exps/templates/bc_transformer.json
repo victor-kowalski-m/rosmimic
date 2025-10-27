@@ -1,15 +1,14 @@
 {
     "algo_name": "bc",
     "experiment": {
-        "name": "test",
-        "validate": true,
+        "name": "pick_place_gear_50_bc_transformer",
+        "validate": false,
         "logging": {
             "terminal_output_to_txt": true,
             "log_tb": true,
-            "log_wandb": false,
-            "wandb_proj_name": "debug"
+            "log_wandb": true,
+            "wandb_proj_name": "motion-policy-evaluation-benchmark-robomimic-bc_transformer"
         },
-        "mse":{},
         "save": {
             "enabled": true,
             "every_n_seconds": null,
@@ -28,7 +27,7 @@
         "keep_all_videos": false,
         "video_skip": 5,
         "rollout": {
-            "enabled": true,
+            "enabled": false,
             "n": 50,
             "horizon": 400,
             "rate": 50,
@@ -54,8 +53,8 @@
         ],
         "goal_mode": null,
         "cuda": true,
-        "batch_size": 100,
-        "num_epochs": 2000,
+        "batch_size": 64,
+        "num_epochs": 200,
         "seed": 1
     },
     "algo": {
@@ -83,7 +82,7 @@
             "enabled": false
         },
         "gmm": {
-            "enabled": true,
+            "enabled": false,
             "num_modes": 5,
             "min_std": 0.0001,
             "std_activation": "softplus",
@@ -109,10 +108,12 @@
                 "low_dim": [
                     "robot0_eef_pos",
                     "robot0_eef_quat",
-                    "robot0_gripper_qpos",
-                    "object"
+                    "robot0_gripper_qpos"
                 ],
-                "rgb": [],
+                "rgb": [
+                    "robot0_eye_in_hand_image",
+                    "agentview_image"
+                ],
                 "depth": [],
                 "scan": []
             },
