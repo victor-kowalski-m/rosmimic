@@ -21,7 +21,7 @@ Example of training a pick and insert gear diffusion policy using demos collecte
 
 In this example, we use the robot infrastructure from the [blindserl](https://gitlab.tuwien.ac.at/e384-03-as/blindserl) repo.
 
-Launch a second docker container following the instructions in that repo.
+Launch a second docker container following the instructions in that repo (for the actor).
 
 Then, inside that container, launch the SERL cartesian impedance controller and robot state topics with: 
 
