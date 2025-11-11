@@ -17,6 +17,27 @@ Open rosmimic folder in VSCode. Reopen and rebuild in devcontainer (Ctrl + Shift
 
 Example of training a pick and insert gear diffusion policy using demos collected with a space mouse. The used gym environment is SERL, which maps to `robomimic/envs/env_franka_serl.py`. It is ROS based and uses two cameras and the SERL cartesian impedance controller. 
 
+### Launching controllers and sensor publishers
+
+In this example, we use the robot infrastructure from the [blindserl](https://gitlab.tuwien.ac.at/e384-03-as/blindserl) repo.
+
+Launch a second docker container following the instructions in that repo.
+
+Then, inside that container, launch the SERL cartesian impedance controller and robot state topics with: 
+
+```
+cd serl_robot_infra/robot_servers
+bash my_launch.sh
+```
+
+Wait a few seconds and in a new terminal, launch the joint position controller and the camera publishers with:
+
+```
+roslaunch rosmimic_extras joint_control_and_cams.launch
+```
+
+Wait a few more seconds, and go back to this rosmimic container for the next steps. 
+
 ### Demo collection
 
 Collect 10 demos with:

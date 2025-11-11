@@ -34,6 +34,27 @@ from scipy.spatial.transform import Rotation as R
 import cv2
 from franka_msgs.msg import ErrorRecoveryActionGoal
 
+OBJ_RESET_POSE = [ 
+    0.58014052,
+    -0.01655394,
+    0.05100882,
+    -0.01210018,
+    0.99975015,
+    0.01759502,
+    0.00623104,
+]
+RANDOM_RANGE = 0.02 # added or subtracted to OBJ_RESET_POSE in x or y directions
+JOINT_RESET_CONFIG = [
+    -0.2308585279098418,
+    0.16583415279753688,
+    0.10565636168075976,
+    -2.3610437128201682,
+    0.0039337417276311395,
+    2.542662347136748,
+    0.5748846269523888
+]
+
+
 class EnvFrankaSERL(EB.EnvBase):
     """Wrapper class for gym"""
     def __init__(
@@ -68,14 +89,6 @@ class EnvFrankaSERL(EB.EnvBase):
         self._external_camera_image = None
         self._franka_state = None
         self._gripper_joint_state = None
-
-        self.x_range = (0.4, 0.6)
-        self.y_range = (-0.2, 0.2)
-        self.z_fixed = 0.035/2
-        self.roll_fixed = 0
-        self.pitch_fixed = 0
-        self.yaw_range = (-np.pi/4, np.pi/4)
-        self.block_pose = None
 
         self._gripper_open = True
 
@@ -236,7 +249,7 @@ class EnvFrankaSERL(EB.EnvBase):
 
         self._equilibrium_pose_pub.publish(pose_msg)
         # Control gripper
-        if action[7] <= 0.04 and self._gripper_open:  # Assuming a threshold for closing the gripper
+        if action[7] <= 0.045 and self._gripper_open:  # Assuming a threshold for closing the gripper
             print("Closing gripper")
             grasp_msg = GraspActionGoal()
             grasp_msg.goal.width = 0.0  # Desired gripper width
@@ -246,7 +259,7 @@ class EnvFrankaSERL(EB.EnvBase):
             grasp_msg.goal.epsilon.outer = 0.2
             self._gripper_grasp_pub.publish(grasp_msg)
             self._gripper_open = False
-        elif action[7] >= 0.045 and not self._gripper_open:  # Assuming a threshold for opening the gripper
+        elif action[7] > 0.045 and not self._gripper_open:  # Assuming a threshold for opening the gripper
             print("Opening gripper")
             grasp_msg = MoveActionGoal()
             grasp_msg.goal.width = action[7]  # Desired gripper width
@@ -294,51 +307,6 @@ class EnvFrankaSERL(EB.EnvBase):
             obs['gripper_position'] = np.reshape(np.sum(self._gripper_joint_state.position)/0.05, [1])
         return obs
     
-    def randomize_block_pose(self):
-        """Generate random block position within specified range"""
-        x = random.uniform(*self.x_range)
-        y = random.uniform(*self.y_range)
-        z = self.z_fixed
-        roll = self.roll_fixed
-        pitch = self.pitch_fixed
-        yaw = random.uniform(*self.yaw_range)
-        
-        return x, y, z, roll, pitch, yaw
-    
-    def set_block_pose(self, x, y, z, roll=0.0, pitch=0.0, yaw=0.0):
-        """Set block to specified position"""
-        try:
-            block_state = ModelState()
-            block_state.model_name = 'pick_block'
-            
-            # Set position
-            block_state.pose.position.x = x
-            block_state.pose.position.y = y
-            block_state.pose.position.z = z
-            
-            # Convert RPY to quaternion
-            quaternion = tf.transformations.quaternion_from_euler(roll, pitch, yaw)
-            block_state.pose.orientation.x = quaternion[0]
-            block_state.pose.orientation.y = quaternion[1]
-            block_state.pose.orientation.z = quaternion[2]
-            block_state.pose.orientation.w = quaternion[3]
-            
-            # Zero velocity
-            block_state.twist = Twist()
-            
-            # response = self.set_model_state_client(block_state)
-            
-            # if response.success:
-            #     rospy.loginfo(f"Block positioned at ({x:.3f}, {y:.3f}, {z:.3f})")
-            #     return True
-            # else:
-            #     rospy.logerr(f"Failed to set block position: {response.status_message}")
-            #     return False
-                
-        except Exception as e:
-            rospy.logerr(f"Error setting block position: {e}")
-            return False
-
     def move_to_start(self):
         """
         Move robot to starting configuration.
@@ -348,6 +316,7 @@ class EnvFrankaSERL(EB.EnvBase):
         if pose is None:
             rospy.logerr('move_to_start: Could not find required parameter "' + param + '"')
             sys.exit(1)
+        pose = {joint:JOINT_RESET_CONFIG[i] for i, joint in enumerate(pose)}
 
         topic = rospy.resolve_name('/joint_states')
         rospy.loginfo("move_to_start: Waiting for message on topic '" + topic + "'")
@@ -422,36 +391,6 @@ class EnvFrankaSERL(EB.EnvBase):
             rospy.sleep(1)  # Wait for controller to stop
             
             rospy.loginfo("Switched to effort_joint_trajectory_controller")
-
-            # Prepare joint names and positions for Gazebo service
-            # joint_names = list(self.default_joint_positions.keys())
-            # joint_positions = list(self.default_joint_positions.values())
-            
-            # # Reset joint configuration
-            # response = self.set_model_config_client(
-            #     model_name=self.arm_id,
-            #     urdf_param_name='robot_description',
-            #     joint_names=joint_names,
-            #     joint_positions=joint_positions
-            # )
-            
-            # if not response.success:
-            #     rospy.logwarn(f"Failed to reset joint configuration: {response.status_message}")
-            #     return False
-            
-            # rospy.sleep(3)  # Wait for joints to settle
-
-            # pose_msg = PoseStamped()
-
-            # pose_msg.pose.position.x = self._current_obs['robot_ee_pos'][0]
-            # pose_msg.pose.position.y = self._current_obs['robot_ee_pos'][1]
-            # pose_msg.pose.position.z = self._current_obs['robot_ee_pos'][2]
-            # pose_msg.pose.orientation.w = self._current_obs['robot_ee_quat'][0]
-            # pose_msg.pose.orientation.x = self._current_obs['robot_ee_quat'][1]
-            # pose_msg.pose.orientation.y = self._current_obs['robot_ee_quat'][2]
-            # pose_msg.pose.orientation.z = self._current_obs['robot_ee_quat'][3]
-
-            # self._equilibrium_pose_pub.publish(pose_msg)
                  
             self.move_to_start()
 
@@ -522,17 +461,38 @@ class EnvFrankaSERL(EB.EnvBase):
         pose_msg = PoseStamped()
 
         # Assuming action is [x, y, z, qx, qy, qz, qw, gripper_width, gripper_force]
-        pose_msg.pose.position.x = 0.58014052 + np.random.uniform(-0.02, 0.02)
-        pose_msg.pose.position.y = -0.01655394 + np.random.uniform(-0.02, 0.02)
-        pose_msg.pose.position.z = 0.05100882
-        pose_msg.pose.orientation.w = -0.01210018
-        pose_msg.pose.orientation.x = 0.99975015
-        pose_msg.pose.orientation.y = 0.01759502
-        pose_msg.pose.orientation.z = 0.00623104
+        pose_msg.pose.position.x = OBJ_RESET_POSE[0] + np.random.uniform(-RANDOM_RANGE, RANDOM_RANGE) # + np.random.uniform(0.025, 0.03)*np.random.choice([-1, 1]) # OOD test
+        pose_msg.pose.position.y = OBJ_RESET_POSE[1] + np.random.uniform(-RANDOM_RANGE, RANDOM_RANGE) # + np.random.uniform(0.025, 0.03)*np.random.choice([-1, 1]) # OOD test
+        pose_msg.pose.position.z = OBJ_RESET_POSE[2]
+        pose_msg.pose.orientation.w = OBJ_RESET_POSE[3]
+        pose_msg.pose.orientation.x = OBJ_RESET_POSE[4]
+        pose_msg.pose.orientation.y = OBJ_RESET_POSE[5]
+        pose_msg.pose.orientation.z = OBJ_RESET_POSE[6]
 
         self._equilibrium_pose_pub.publish(pose_msg)
 
         rospy.sleep(2)
+
+
+        # Check range
+        # while True:
+        #     for x in [0, 2]:
+        #         for y in [0, 2]:
+        #             offset_x = -RANDOM_RANGE +x*RANDOM_RANGE
+        #             offset_y = -RANDOM_RANGE +y*RANDOM_RANGE
+
+        #             # Assuming action is [x, y, z, qx, qy, qz, qw, gripper_width, gripper_force]
+                      # pose_msg.pose.position.x = OBJ_RESET_POSE[0] + offset_x
+                      # pose_msg.pose.position.y = OBJ_RESET_POSE[1] + offset_y
+                      # pose_msg.pose.position.z = OBJ_RESET_POSE[2]
+                      # pose_msg.pose.orientation.w = OBJ_RESET_POSE[3]
+                      # pose_msg.pose.orientation.x = OBJ_RESET_POSE[4]
+                      # pose_msg.pose.orientation.y = OBJ_RESET_POSE[5]
+                      # pose_msg.pose.orientation.z = OBJ_RESET_POSE[6]
+
+        #             self._equilibrium_pose_pub.publish(pose_msg)
+
+        #             rospy.sleep(1)
 
         grasp_msg = MoveActionGoal()
         grasp_msg.goal.width = 0.05  # Desired gripper width
@@ -545,12 +505,6 @@ class EnvFrankaSERL(EB.EnvBase):
 
         self.reset_robot_joints()
 
-        # Wait for fresh observations
-        # rospy.sleep(1)
-
-        self.block_pose = self.randomize_block_pose()
-
-        self.set_block_pose(*self.block_pose)
 
         # Read current observations from topics
         self._current_obs = self._get_obs_dict()

@@ -15,13 +15,13 @@
     "--device=/dev/dri:/dev/dri",
     "--network=host"
   ],
-  "forwardPorts": [11311],
-  "portsAttributes": {
-    "11311": {
-      "label": "ROS Master",
-      "onAutoForward": "notify"
-    }
-  },
+  // "forwardPorts": [11311],
+  // "portsAttributes": {
+  //   "11311": {
+  //     "label": "ROS Master",
+  //     "onAutoForward": "notify"
+  //   }
+  // },
   "postCreateCommand": "/opt/conda/bin/conda run -n robomimic_venv pip install -e .",
   "customizations": {
     "vscode": {
