@@ -19,7 +19,7 @@ Example of training a pick and insert gear diffusion policy using demos collecte
 
 ### Launching controllers and sensor publishers
 
-In this example, we use the robot infrastructure from the [blindserl](https://gitlab.tuwien.ac.at/e384-03-as/blindserl) repo.
+In this example, we use the robot infrastructure from the [blindserl](https://github.com/victor-kowalski-m/blindserl) repo.
 
 Launch a second docker container following the instructions in that repo (for the actor).
 
